@@ -32,7 +32,7 @@ return function (App $app) {
         }
     
         return $response->withHeader("Content-Type", "application/json");
-    });
+    });  
 
     // Mengambil data mahasiswa by nim
     $app->get('/mahasiswa/{nim}', function ($request, $response, $args) {
@@ -64,22 +64,44 @@ return function (App $app) {
     });    
 
     // Post Data
-    //Menambahkan data mahasiswa
+    // Menambahkan data mahasiswa
     $app->post('/mahasiswa', function ($request, $response) {
         $parsedBody = $request->getParsedBody();
         $new_nim = $parsedBody["nim"];
         $new_nama = $parsedBody["nama"];
         $new_prodi = $parsedBody["prodi"];
-    
+
+        // Validasi data tidak boleh kosong
+        if (empty($new_nim) || empty($new_nama) || empty($new_prodi)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data nim, nama, dan prodi tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         $db = $this->get(PDO::class);
-    
+
+        // Validasi NIM tidak boleh duplikat
+        if (isNimExists($db, $new_nim)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'NIM ' . $new_nim . ' sudah ada dalam database.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         try {
             $query = $db->prepare('CALL insert_mahasiswa(?, ?, ?)');
             $query->bindParam(1, $new_nim, PDO::PARAM_INT);
             $query->bindParam(2, $new_nama, PDO::PARAM_STR);
             $query->bindParam(3, $new_prodi, PDO::PARAM_STR);
             $query->execute();
-    
+
             $response->getBody()->write(json_encode(
                 [
                     'message' => 'Data mahasiswa disimpan dengan sukses'
@@ -94,27 +116,38 @@ return function (App $app) {
                 ]
             ));
         }
-    
+
         return $response->withHeader("Content-Type", "application/json");
     });
-    
+
     // Put Data
     // Update data mahasiswa by nim
     $app->put('/mahasiswa/{nim}', function ($request, $response, $args) {
         $db = $this->get(PDO::class);
         $nim = $args['nim'];
-    
+
         $parsedBody = $request->getParsedBody();
         $nama = $parsedBody["nama"];
         $prodi = $parsedBody["prodi"];
-    
+
+        // Validasi data tidak boleh kosong
+        if (empty($nama) || empty($prodi)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data nama dan prodi tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         try {
             $query = $db->prepare('CALL update_mahasiswa(?, ?, ?)');
             $query->bindParam(1, $nim, PDO::PARAM_INT);
             $query->bindParam(2, $nama, PDO::PARAM_STR);
             $query->bindParam(3, $prodi, PDO::PARAM_STR);
             $query->execute();
-    
+
             $response->getBody()->write(json_encode(
                 [
                     'message' => 'Data mahasiswa dengan nim ' . $nim . ' telah diperbarui dengan nama ' . $nama . ' dan prodi ' . $prodi
@@ -129,7 +162,7 @@ return function (App $app) {
                 ]
             ));
         }
-    
+
         return $response->withHeader("Content-Type", "application/json");
     });
 
@@ -225,20 +258,42 @@ return function (App $app) {
     });    
 
     // Post Data
-    //Menambahkan data dosen
+    // Menambahkan data dosen
     $app->post('/dosen', function ($request, $response) {
         $parsedBody = $request->getParsedBody();
         $new_id_dosen = $parsedBody["id_dosen"];
         $new_nama_dosen = $parsedBody["nama_dosen"];
-    
+
+        // Validasi data tidak boleh kosong
+        if (empty($new_id_dosen) || empty($new_nama_dosen)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data id_dosen dan nama_dosen tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         $db = $this->get(PDO::class);
-    
+
+        // Validasi id_dosen tidak boleh duplikat
+        if (isIdDosenExists($db, $new_id_dosen)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'ID Dosen ' . $new_id_dosen . ' sudah ada dalam database.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         try {
             $query = $db->prepare('CALL insert_dosen(?, ?)');
             $query->bindParam(1, $new_id_dosen, PDO::PARAM_STR);
             $query->bindParam(2, $new_nama_dosen, PDO::PARAM_STR);
             $query->execute();
-    
+
             $response->getBody()->write(json_encode(
                 [
                     'message' => 'Data dosen disimpan dengan sukses'
@@ -253,9 +308,19 @@ return function (App $app) {
                 ]
             ));
         }
-    
+
         return $response->withHeader("Content-Type", "application/json");
-    });    
+    });
+
+    // Fungsi untuk memeriksa apakah ID Dosen sudah ada dalam database
+    function isIdDosenExists($db, $id_dosen) {
+        $query = $db->prepare('SELECT COUNT(*) FROM dosen WHERE id_dosen = ?');
+        $query->bindParam(1, $id_dosen, PDO::PARAM_STR);
+        $query->execute();
+        $count = $query->fetchColumn();
+
+        return $count > 0;
+    }
     
     // Put Data
     // Update data dosen by id_dosen
@@ -265,6 +330,17 @@ return function (App $app) {
     
         $parsedBody = $request->getParsedBody();
         $nama_dosen = $parsedBody["nama_dosen"];
+    
+        // Validasi data tidak boleh kosong
+        if (empty($nama_dosen)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data nama_dosen tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
     
         try {
             $query = $db->prepare('CALL update_dosen(?, ?)');
@@ -288,7 +364,7 @@ return function (App $app) {
         }
     
         return $response->withHeader("Content-Type", "application/json");
-    });
+    });    
     
     //Delete Data
     // Menghapus data dosen by id_dosen
@@ -388,16 +464,38 @@ return function (App $app) {
     });
     
     // Post Data
-    //Menambahkan data matkul
+    // Menambahkan data matkul
     $app->post('/matkul', function ($request, $response) {
         $parsedBody = $request->getParsedBody();
         $new_kode_matkul = $parsedBody["kode_matkul"];
         $new_id_dosen = $parsedBody["id_dosen"];
         $new_nama_matkul = $parsedBody["nama_matkul"];
         $new_sks = $parsedBody["sks"];
-    
+
+        // Validasi data tidak boleh kosong
+        if (empty($new_kode_matkul) || empty($new_id_dosen) || empty($new_nama_matkul) || empty($new_sks)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data kode_matkul, id_dosen, nama_matkul, dan sks tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         $db = $this->get(PDO::class);
-    
+
+        // Validasi id_matkul tidak boleh duplikat
+        if (isIdMatkulExists($db, $new_kode_matkul)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'ID Mata Kuliah ' . $new_kode_matkul . ' sudah ada dalam database.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         try {
             $query = $db->prepare('CALL insert_matkul(?, ?, ?, ?)');
             $query->bindParam(1, $new_kode_matkul, PDO::PARAM_STR);
@@ -405,9 +503,9 @@ return function (App $app) {
             $query->bindParam(3, $new_nama_matkul, PDO::PARAM_STR);
             $query->bindParam(4, $new_sks, PDO::PARAM_INT);
             $query->execute();
-    
+
             $lastId = $db->lastInsertId();
-    
+
             if ($query->rowCount() > 0) {
                 $response->getBody()->write(json_encode(
                     [
@@ -431,21 +529,42 @@ return function (App $app) {
                 ]
             ));
         }
-    
+
         return $response->withHeader("Content-Type", "application/json");
     });
-    
+
+    // Fungsi untuk memeriksa apakah ID Mata Kuliah sudah ada dalam database
+    function isIdMatkulExists($db, $id_matkul) {
+        $query = $db->prepare('SELECT COUNT(*) FROM matkul WHERE kode_matkul = ?');
+        $query->bindParam(1, $id_matkul, PDO::PARAM_STR);
+        $query->execute();
+        $count = $query->fetchColumn();
+
+        return $count > 0;
+    }
+
     // Put Data
     // Update data matkul by kode_matkul
     $app->put('/matkul/{kode_matkul}', function ($request, $response, $args) {
         $db = $this->get(PDO::class);
         $kode_matkul = $args['kode_matkul'];
         $parsedBody = $request->getParsedBody();
-    
+
         $id_dosen_new = $parsedBody['id_dosen'];
         $nama_matkul_new = $parsedBody['nama_matkul'];
         $sks_new = $parsedBody['sks'];
-    
+
+        // Validasi data tidak boleh kosong
+        if (empty($id_dosen_new) || empty($nama_matkul_new) || empty($sks_new)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data id_dosen, nama_matkul, dan sks tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         try {
             $query = $db->prepare('CALL update_matkul(?, ?, ?, ?)');
             $query->bindParam(1, $kode_matkul, PDO::PARAM_STR);
@@ -453,7 +572,7 @@ return function (App $app) {
             $query->bindParam(3, $nama_matkul_new, PDO::PARAM_STR);
             $query->bindParam(4, $sks_new, PDO::PARAM_INT);
             $query->execute();
-    
+
             $response->getBody()->write(json_encode(
                 [
                     'message' => 'Mata kuliah dengan kode_matkul ' . $kode_matkul . ' telah diupdate'
@@ -468,7 +587,7 @@ return function (App $app) {
                 ]
             ));
         }
-    
+
         return $response->withHeader("Content-Type", "application/json");
     });
 
@@ -570,24 +689,35 @@ return function (App $app) {
     });
     
     // Post Data
-    //Menambahkan data nilai mahasiswa
+    // Menambahkan data nilai mahasiswa
     $app->post('/nilai_mahasiswa', function ($request, $response) {
         $parsedBody = $request->getParsedBody();
         $new_student_nim = $parsedBody["nim"];
         $new_course_code = $parsedBody["kode_matkul"];
         $new_grade_value = $parsedBody["nilai"];
-    
+
+        // Validasi data tidak boleh kosong
+        if (empty($new_student_nim) || empty($new_course_code) || empty($new_grade_value)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data nim, kode_matkul, dan nilai tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         $db = $this->get(PDO::class);
-    
+
         try {
             $query = $db->prepare('CALL insert_nilai(?, ?, ?)');
             $query->bindParam(1, $new_student_nim, PDO::PARAM_INT);
             $query->bindParam(2, $new_course_code, PDO::PARAM_STR);
             $query->bindParam(3, $new_grade_value, PDO::PARAM_STR);
             $query->execute();
-    
+
             $lastId = $db->lastInsertId();
-    
+
             if ($query->rowCount() > 0) {
                 $response->getBody()->write(json_encode(
                     [
@@ -611,25 +741,36 @@ return function (App $app) {
                 ]
             ));
         }
-    
+
         return $response->withHeader("Content-Type", "application/json");
     });
-    
+
     // Put Data
     // Update data nilai mahasiswa by id_nilai
     $app->put('/nilai_mahasiswa/{id_nilai}', function ($request, $response, $args) {
         $db = $this->get(PDO::class);
         $id_nilai = $args['id_nilai'];
         $parsedBody = $request->getParsedBody();
-    
+
         $nilai_new = $parsedBody['nilai'];
-    
+
+        // Validasi data tidak boleh kosong
+        if (empty($nilai_new)) {
+            $response = $response->withStatus(400); // Bad Request
+            $response->getBody()->write(json_encode(
+                [
+                    'error' => 'Data nilai tidak boleh kosong.',
+                ]
+            ));
+            return $response->withHeader("Content-Type", "application/json");
+        }
+
         try {
             $query = $db->prepare('CALL update_nilai_mahasiswa(?, ?)');
             $query->bindParam(1, $id_nilai, PDO::PARAM_STR);
             $query->bindParam(2, $nilai_new, PDO::PARAM_STR);
             $query->execute();
-    
+
             $response->getBody()->write(json_encode(
                 [
                     'message' => 'Nilai mahasiswa dengan id_nilai ' . $id_nilai . ' telah diupdate'
@@ -644,7 +785,7 @@ return function (App $app) {
                 ]
             ));
         }
-    
+
         return $response->withHeader("Content-Type", "application/json");
     });
 
