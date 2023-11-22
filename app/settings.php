@@ -24,8 +24,8 @@ return function (ContainerBuilder $containerBuilder) {
                 'db' => [
                     'host' => '127.0.0.1',
                     'dbname' => 'nilai',
-                    'user' => 'root',
-                    'password' => '',
+                    'user' => 'amalia18',
+                    'password' => 'Amal1808.',
                 ]
             ]);
         },
